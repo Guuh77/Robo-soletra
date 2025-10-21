@@ -1,0 +1,213 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Space+Mono:wght@400;700&display=swap');
+
+:root {
+  --background-color: #1a1a2e;
+  --card-background: #16213e;
+  --primary-color: #0f3460;
+  --accent-color: #3d5af1; /* Changed to a cool blue */
+  --accent-color-hover: #5c72f2;
+  --text-color: #dcdcdc;
+  --label-color: #a0a0a0;
+  --border-color: #2a2a4e;
+  --success-color: #4caf50;
+  --error-color: #f44336;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Roboto', sans-serif;
+  background-color: var(--background-color);
+  color: var(--text-color);
+  line-height: 1.7;
+  padding: 2rem;
+  font-size: 16px;
+}
+
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+header {
+  text-align: center;
+  border-bottom: 2px solid var(--accent-color);
+  padding-bottom: 1rem;
+}
+
+header h1 {
+  font-family: 'Space Mono', monospace;
+  font-size: 2.8rem;
+  color: #fff;
+  margin-bottom: 0.5rem;
+  letter-spacing: -1px;
+}
+
+header p {
+  color: var(--label-color);
+  font-size: 1.1rem;
+}
+
+main {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.card {
+  background-color: var(--card-background);
+  border-radius: 8px;
+  padding: 1.5rem 2rem;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.card h2 {
+  font-family: 'Space Mono', monospace;
+  margin-bottom: 1rem;
+  color: #fff;
+  border-left: 4px solid var(--accent-color);
+  padding-left: 1rem;
+}
+
+.description-card p {
+  font-size: 1.1rem;
+}
+
+.bot-actions ol {
+  list-style: none;
+  padding-left: 0;
+}
+
+.bot-actions li {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.bot-actions li:last-child {
+  border-bottom: none;
+}
+
+.bot-actions li span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Space Mono', monospace;
+  font-weight: bold;
+  background-color: var(--primary-color);
+  color: var(--accent-color);
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+}
+
+#start-bot-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 1rem;
+  font-size: 1.3rem;
+  font-weight: 700;
+  font-family: 'Space Mono', monospace;
+  color: #fff;
+  background-color: var(--accent-color);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.1s;
+}
+
+#start-bot-button:hover {
+  background-color: var(--accent-color-hover);
+  transform: translateY(-3px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+}
+
+.instructions {
+  border-top: 4px solid var(--success-color);
+}
+
+.security-note {
+  background-color: rgba(244, 67, 54, 0.1);
+  border: 1px solid var(--error-color);
+  border-radius: 4px;
+  padding: 1rem;
+  margin: 1.5rem 0;
+}
+
+.step {
+  margin-bottom: 2rem;
+}
+
+.step h3 {
+  font-family: 'Space Mono', monospace;
+  margin-bottom: 0.5rem;
+  color: #fff;
+}
+
+.step p {
+  color: var(--label-color);
+}
+
+.step a {
+  color: var(--accent-color);
+  text-decoration: none;
+}
+.step a:hover {
+  text-decoration: underline;
+}
+
+pre {
+  background-color: #0d1117; /* GitHub dark theme */
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 1rem;
+  overflow-x: auto;
+  margin-top: 1rem;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.95rem;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+code {
+  color: #c9d1d9;
+}
+
+.python-code {
+    max-height: 400px;
+    overflow-y: auto;
+    display: block;
+}
+
+footer {
+  text-align: center;
+  margin-top: 2rem;
+  color: var(--label-color);
+  font-size: 0.9rem;
+}
+
+@media (max-width: 600px) {
+    body {
+        padding: 1rem;
+    }
+    header h1 {
+        font-size: 2.2rem;
+    }
+    .card {
+        padding: 1.25rem;
+    }
+}

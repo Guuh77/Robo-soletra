@@ -32,9 +32,9 @@ def remove_palavras_duplicadas(nome_arquivo_entrada, nome_arquivo_saida):
         print(f"Ocorreu um erro ao escrever no arquivo: {e}")
 
 # Nome do seu arquivo de entrada
-arquivo_entrada = 'dups.txt'
+arquivo_entrada = 'Robo-soletra\dup\dups.txt'
 # Nome do arquivo de saída onde as palavras sem duplicatas serão salvas
-arquivo_saida = 'no_dups.txt'
+arquivo_saida = 'Robo-soletra\dup\mno_dups.txt'
 
 # Chama a função para remover as duplicatas
 remove_palavras_duplicadas(arquivo_entrada, arquivo_saida)
