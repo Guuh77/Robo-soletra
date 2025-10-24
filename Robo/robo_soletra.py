@@ -129,7 +129,7 @@ def jogar_soletra():
             
             for i, palavra in enumerate(palavras_para_jogar):
                 campo_resposta.send_keys(palavra)
-                time.sleep(0.04)
+                time.sleep(0.05)
                 botao_confirmar.click()
                 print(f"({i+1}/{len(palavras_para_jogar)}) Enviada: {palavra}")
                 time.sleep(0.25)
