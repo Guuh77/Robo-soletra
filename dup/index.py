@@ -1,11 +1,4 @@
 def remove_palavras_duplicadas(nome_arquivo_entrada, nome_arquivo_saida):
-    """
-    Lê um arquivo de texto, remove palavras duplicadas e escreve o resultado em um novo arquivo.
-
-    Args:
-        nome_arquivo_entrada (str): O nome do arquivo de onde ler as palavras.
-        nome_arquivo_saida (str): O nome do arquivo onde salvar as palavras únicas.
-    """
     palavras_unicas = set() # Usamos um set para armazenar palavras únicas por sua natureza de não permitir duplicatas
 
     try:

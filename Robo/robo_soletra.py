@@ -7,15 +7,9 @@ from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-# --- PARTE 1: O "CÉREBRO" DO ROBÔ (COM LÓGICA CORRETA DE CARACTERES) ---
+# --- O Cérebro Do Robô ---
 
 def normalizar_palavra(texto):
-    """
-    Normaliza uma string para as regras do Soletra:
-    - Converte vogais acentuadas para suas formas sem acento (á -> a).
-    - MANTÉM o 'ç' como uma letra distinta do 'c'.
-    - Converte tudo para minúsculas.
-    """
     texto = texto.lower()
     # Mapa de substituição apenas para vogais acentuadas
     mapa_acentos = {
@@ -34,7 +28,7 @@ def carregar_dicionario(caminho_arquivo='Robo-soletra\Robo\palavras3.txt'):
     print(f"Carregando o dicionário '{caminho_arquivo}'...")
     try:
         with open(caminho_arquivo, 'r', encoding='utf-8') as f:
-            # Carregamos as palavras originais, com acentos e ç
+            # Carregamos as palavras originais
             palavras = {linha.strip() for linha in f}
             print(f"Dicionário carregado com {len(palavras)} palavras.")
             return palavras
@@ -43,10 +37,7 @@ def carregar_dicionario(caminho_arquivo='Robo-soletra\Robo\palavras3.txt'):
         return None
 
 def encontrar_palavras_validas(letras_disponiveis, letra_central, dicionario):
-    """
-    Versão final: Usa a normalização inteligente que diferencia 'c' de 'ç'.
-    """
-    print("Caçando palavras válidas com a lógica correta (c != ç)...")
+    print("Caçando palavras válidas com a lógica correta...")
     palavras_encontradas = []
     
     # Normalizamos as letras do jogo uma única vez para eficiência
@@ -60,11 +51,11 @@ def encontrar_palavras_validas(letras_disponiveis, letra_central, dicionario):
         # Normalizamos a palavra do dicionário para a verificação
         palavra_norm = normalizar_palavra(palavra_original)
         
-        # Regra 1: A letra central (normalizada) deve estar na palavra (normalizada)
+        # A letra central (normalizada) deve estar na palavra (normalizada)
         if letra_central_norm not in palavra_norm:
             continue
         
-        # Regra 2: Todas as letras da palavra (normalizada) devem estar no conjunto de letras disponíveis (normalizadas)
+        # Todas as letras da palavra (normalizada) devem estar no conjunto de letras disponíveis (normalizadas)
         if set(palavra_norm).issubset(letras_disponiveis_norm_set):
             # Adicionamos a palavra ORIGINAL à lista para ser digitada corretamente no jogo
             palavras_encontradas.append(palavra_original)
@@ -75,7 +66,7 @@ def encontrar_palavras_validas(letras_disponiveis, letra_central, dicionario):
     return palavras_encontradas
 
 
-# --- PARTE 2: AUTOMAÇÃO DO JOGO (SEM MUDANÇAS) ---
+# --- Automação Do Jogo  ---
 
 def jogar_soletra():
     dicionario = carregar_dicionario()
@@ -92,7 +83,7 @@ def jogar_soletra():
         navegador.maximize_window()
         print("Página carregada.")
 
-        # ETAPA 1: NAVEGAÇÃO
+        # Navegação
         try:
             wait.until(EC.element_to_be_clickable((By.ID, "cookie-ok-button"))).click()
             print("Pop-up de cookies fechado.")
@@ -106,7 +97,7 @@ def jogar_soletra():
         except TimeoutException:
             print("Nenhuma tela de tutorial encontrada.")
 
-        # ETAPA 2: EXTRAIR LETRAS E ENCONTRAR RESPOSTAS
+        # Extrair Letras e Encontrar Respostas
         print("\n--- Jogo iniciado! Lendo o tabuleiro... ---")
         wait.until(EC.visibility_of_element_located((By.CLASS_NAME, "letters")))
         time.sleep(0.6)
@@ -119,7 +110,7 @@ def jogar_soletra():
         
         palavras_para_jogar = encontrar_palavras_validas(letras_disponiveis, letra_central, dicionario)
         
-        # ETAPA 3: JOGAR AS RESPOSTAS
+        # Jogar As Respostas
         if not palavras_para_jogar:
             print("\nNenhuma palavra foi encontrada no dicionário para as letras de hoje.")
         else:
