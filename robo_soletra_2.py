@@ -1,4 +1,6 @@
 import time
+import pandas as pd
+import os
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
@@ -10,7 +12,11 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
 
-# --- O Cérebro Turbinado Do Robô ---
+# --- CONFIGURAÇÕES ---
+HISTORICO_FILE = "historico_soletra.csv"
+
+
+# --- O Cérebro Turbinado Com Machine Learning ---
 
 
 def normalizar_palavra(texto):
@@ -27,19 +33,19 @@ def normalizar_palavra(texto):
 
 
 def carregar_dicionario(caminho_arquivo='Robo-soletra/Robo/palavras3.txt'):
-    print(f"Carregando o dicionário '{caminho_arquivo}'...")
+    print(f"📚 Carregando o dicionário '{caminho_arquivo}'...")
     try:
         with open(caminho_arquivo, 'r', encoding='utf-8') as f:
             palavras = {linha.strip() for linha in f}
-            print(f"Dicionário carregado com {len(palavras)} palavras.")
+            print(f"✓ Dicionário carregado com {len(palavras)} palavras.")
             return palavras
     except FileNotFoundError:
-        print(f"ERRO CRÍTICO: O arquivo de dicionário '{caminho_arquivo}' não foi encontrado.")
+        print(f"❌ ERRO: O arquivo de dicionário '{caminho_arquivo}' não foi encontrado.")
         return None
 
 
 def encontrar_palavras_validas(letras_disponiveis, letra_central, dicionario):
-    print("Caçando palavras válidas com a lógica correta...")
+    print("🔍 Caçando palavras válidas...")
     palavras_encontradas = []
     
     letra_central_norm = normalizar_palavra(letra_central)
@@ -59,19 +65,105 @@ def encontrar_palavras_validas(letras_disponiveis, letra_central, dicionario):
             
     palavras_encontradas.sort(key=len)
     
-    print(f"Sucesso! {len(palavras_encontradas)} palavras válidas foram encontradas.")
+    print(f"✓ {len(palavras_encontradas)} palavras válidas encontradas.")
     return palavras_encontradas
 
 
-# --- Automação Turbo Do Jogo ---
+# --- MACHINE LEARNING: HISTÓRICO E PRIORIZAÇÃO ---
 
 
-def configurar_navegador_otimizado():
+def carregar_historico():
+    """Carrega histórico de palavras que funcionaram antes"""
+    if os.path.exists(HISTORICO_FILE):
+        df = pd.read_csv(HISTORICO_FILE)
+        print(f"📊 Histórico carregado: {len(df)} registros")
+        return df
+    else:
+        print("📊 Nenhum histórico encontrado. Criando novo...")
+        return pd.DataFrame(columns=["palavra", "foi_aceita", "tamanho", "frequencia"])
+
+
+def atualizar_historico(palavras_aceitas, palavras_rejeitadas):
+    """Atualiza o histórico com novos resultados (Machine Learning)"""
+    historico = carregar_historico()
+    
+    # Adicionar palavras aceitas
+    for palavra in palavras_aceitas:
+        if palavra in historico['palavra'].values:
+            # Incrementa frequência
+            historico.loc[historico['palavra'] == palavra, 'frequencia'] += 1
+        else:
+            # Nova entrada
+            novo_registro = pd.DataFrame([{
+                "palavra": palavra, 
+                "foi_aceita": 1,
+                "tamanho": len(palavra),
+                "frequencia": 1
+            }])
+            historico = pd.concat([historico, novo_registro], ignore_index=True)
+    
+    # Adicionar palavras rejeitadas (aprendizado negativo)
+    for palavra in palavras_rejeitadas:
+        if palavra not in historico['palavra'].values:
+            novo_registro = pd.DataFrame([{
+                "palavra": palavra, 
+                "foi_aceita": 0,
+                "tamanho": len(palavra),
+                "frequencia": 0
+            }])
+            historico = pd.concat([historico, novo_registro], ignore_index=True)
+    
+    historico.to_csv(HISTORICO_FILE, index=False)
+    print(f"💾 Histórico atualizado: {len(palavras_aceitas)} aceitas, {len(palavras_rejeitadas)} rejeitadas")
+
+
+def priorizar_palavras_ml(palavras):
+    """Usa Machine Learning para priorizar palavras com maior probabilidade de sucesso"""
+    historico = carregar_historico()
+    
+    if historico.empty:
+        print("🤖 ML: Sem dados históricos. Usando ordem padrão.")
+        return palavras
+    
+    # Calcular score de cada palavra baseado no histórico
+    palavras_com_score = []
+    
+    for palavra in palavras:
+        if palavra in historico['palavra'].values:
+            registro = historico[historico['palavra'] == palavra].iloc[0]
+            # Score baseado em: foi_aceita (peso 10) + frequencia (peso 2)
+            score = (registro['foi_aceita'] * 10) + (registro['frequencia'] * 2)
+        else:
+            # Palavras novas recebem score médio
+            score = 5
+        
+        palavras_com_score.append((palavra, score))
+    
+    # Ordenar por score (maior primeiro) e depois por tamanho (menor primeiro)
+    palavras_com_score.sort(key=lambda x: (-x[1], len(x[0])))
+    
+    palavras_priorizadas = [p[0] for p in palavras_com_score]
+    
+    print(f"🤖 ML: Palavras priorizadas com base no histórico")
+    return palavras_priorizadas
+
+
+# --- AUTOMAÇÃO TURBO DO JOGO ---
+
+
+def configurar_navegador_otimizado(headless=False):
     """Configura Chrome com opções de performance"""
     opcoes = Options()
+    
+    if headless:
+        opcoes.add_argument('--headless=new')
+    
     opcoes.add_argument('--disable-blink-features=AutomationControlled')
+    opcoes.add_argument('--disable-gpu')
     opcoes.add_argument('--disable-dev-shm-usage')
     opcoes.add_argument('--no-sandbox')
+    opcoes.add_argument('--window-size=1920,1080')
+    opcoes.add_argument('--log-level=3')
     opcoes.add_experimental_option('excludeSwitches', ['enable-logging'])
     
     servico = Service(ChromeDriverManager().install())
@@ -85,16 +177,14 @@ def ativar_jogo_clicando_letra_central(driver):
         
         letra_central_elemento = driver.find_element(By.CSS_SELECTOR, ".hexagon-cell.center")
         letra_central_elemento.click()
-        print("✓ Letra central clicada!")
         time.sleep(0.3)
         
         input_elem = driver.find_element(By.ID, "input")
         input_elem.send_keys(Keys.BACKSPACE)
-        print("✓ Letra apagada com Backspace!")
         time.sleep(0.3)
         
         driver.execute_script("document.getElementById('input').value = '';")
-        print("✓ Campo limpo e sistema ativado!")
+        print("✓ Sistema ativado!")
         
         return True
         
@@ -111,7 +201,6 @@ def obter_progresso_jogo(driver):
         acertos, total = map(int, texto.split('/'))
         return acertos, total
     except Exception as e:
-        print(f"⚠️ Erro ao obter progresso: {e}")
         return 0, 0
 
 
@@ -123,16 +212,13 @@ def obter_palavras_faltantes_por_tamanho(driver):
         palavras_encontradas = []
         
         for box in word_boxes:
-            # Verifica se tem a classe "found"
             if "found" in box.get_attribute("class"):
-                # Palavra já encontrada
                 try:
                     palavra = box.find_element(By.CSS_SELECTOR, "span.word").text
                     palavras_encontradas.append(palavra)
                 except:
                     pass
             else:
-                # Palavra faltante
                 try:
                     length_text = box.find_element(By.CSS_SELECTOR, "span.length").text
                     num_letras = int(length_text.split()[0])
@@ -142,12 +228,11 @@ def obter_palavras_faltantes_por_tamanho(driver):
         
         return faltantes_por_tamanho, palavras_encontradas
     except Exception as e:
-        print(f"⚠️ Erro ao obter palavras faltantes: {e}")
         return {}, []
 
 
 def enviar_palavra_ultra_rapido(driver, palavra):
-    """Método ultra-rápido com FOCO no input"""
+    """Método ultra-rápido com JavaScript puro"""
     try:
         script = f"""
         var input = document.getElementById('input');
@@ -176,78 +261,96 @@ def enviar_palavra_ultra_rapido(driver, palavra):
         return true;
         """
         
-        resultado = driver.execute_script(script)
+        driver.execute_script(script)
         time.sleep(0.04)
-        
-        return resultado if resultado else True
+        return True
         
     except Exception as e:
         return False
 
 
-def enviar_lote_palavras(driver, palavras, descricao=""):
-    """Envia um lote de palavras e retorna estatísticas"""
+def enviar_lote_palavras_com_tracking(driver, palavras, descricao=""):
+    """Envia palavras e rastreia quais foram aceitas vs rejeitadas"""
     print(f"\n{'='*60}")
     print(f"📝 {descricao}")
     print(f"🎯 Enviando {len(palavras)} palavras...")
     print(f"{'='*60}\n")
     
-    sucesso = 0
+    palavras_aceitas = []
+    palavras_rejeitadas = []
+    
     tempo_inicio = time.time()
     
+    acertos_anterior, total = obter_progresso_jogo(driver)
+    
     for i, palavra in enumerate(palavras):
-        if enviar_palavra_ultra_rapido(driver, palavra):
-            sucesso += 1
+        # Envia palavra
+        enviar_palavra_ultra_rapido(driver, palavra)
         
+        # Aguarda um pouco para processar
+        time.sleep(0.06)
+        
+        # Verifica se foi aceita
+        acertos_atual, _ = obter_progresso_jogo(driver)
+        
+        if acertos_atual > acertos_anterior:
+            palavras_aceitas.append(palavra)
+            acertos_anterior = acertos_atual
+            status = "✅"
+        else:
+            palavras_rejeitadas.append(palavra)
+            status = "❌"
+        
+        # Mostrar progresso a cada 50 palavras
         if (i + 1) % 50 == 0:
             tempo_decorrido = time.time() - tempo_inicio
-            velocidade = sucesso / tempo_decorrido if tempo_decorrido > 0 else 0
+            velocidade = (i + 1) / tempo_decorrido if tempo_decorrido > 0 else 0
             porcentagem = ((i + 1) / len(palavras)) * 100
-            print(f"📊 [{porcentagem:5.1f}%] {i+1:4d}/{len(palavras)} | ⚡ {velocidade:.1f} p/s")
+            print(f"📊 [{porcentagem:5.1f}%] {i+1:4d}/{len(palavras)} | ✅ {len(palavras_aceitas)} | ❌ {len(palavras_rejeitadas)} | ⚡ {velocidade:.1f} p/s")
     
     tempo_total = time.time() - tempo_inicio
-    return sucesso, tempo_total
+    
+    return palavras_aceitas, palavras_rejeitadas, tempo_total
 
 
-def jogar_soletra():
+def jogar_soletra_ml(headless=False):
+    """Versão definitiva com Machine Learning"""
     dicionario = carregar_dicionario()
     if not dicionario:
         return
 
-    print("\nIniciando o navegador turbinado...")
-    navegador = configurar_navegador_otimizado()
+    print("\n" + "="*60)
+    print("🤖 ROBÔ SOLETRA ULTIMATE - COM MACHINE LEARNING")
+    print("="*60)
+    
+    navegador = configurar_navegador_otimizado(headless=headless)
     wait = WebDriverWait(navegador, 20)
     
     try:
         navegador.get("https://g1.globo.com/jogos/soletra/")
-        navegador.maximize_window()
-        print("Página carregada.")
+        if not headless:
+            navegador.maximize_window()
+        print("\n✓ Página carregada.")
         time.sleep(2)
 
         # Navegação inicial
         try:
             wait.until(EC.element_to_be_clickable((By.ID, "cookie-ok-button"))).click()
-            print("Pop-up de cookies fechado.")
             time.sleep(0.5)
         except TimeoutException:
-            print("Nenhum pop-up de cookie encontrado.")
+            pass
         
-        botao_iniciar = wait.until(EC.element_to_be_clickable((By.XPATH, "//*[text()='Iniciar']")))
-        botao_iniciar.click()
-        print("Botão 'Iniciar' clicado.")
+        wait.until(EC.element_to_be_clickable((By.XPATH, "//*[text()='Iniciar']"))).click()
         time.sleep(1.5)
         
         try:
-            botao_jogar = wait.until(EC.element_to_be_clickable((By.XPATH, "//*[text()='Jogar']")))
-            botao_jogar.click()
-            print("Botão 'Jogar' do tutorial clicado.")
+            wait.until(EC.element_to_be_clickable((By.XPATH, "//*[text()='Jogar']"))).click()
         except TimeoutException:
-            print("Nenhuma tela de tutorial encontrada.")
+            pass
         
-        print("\n⏳ Aguardando Svelte renderizar o jogo...")
+        print("\n⏳ Aguardando jogo carregar...")
         wait.until(EC.presence_of_element_located((By.ID, "input")))
         time.sleep(2)
-        print("✓ Input encontrado e pronto!")
 
         # Extrair Letras
         print("\n--- Lendo o tabuleiro... ---")
@@ -259,27 +362,33 @@ def jogar_soletra():
         letras_laterais_texto = "".join([letra.text for letra in letras_laterais_elementos])
         letras_disponiveis = letras_laterais_texto + letra_central
         
-        print(f"Letras disponíveis: {letras_disponiveis.upper()}")
-        print(f"Letra obrigatória: {letra_central.upper()}")
+        print(f"✓ Letras disponíveis: {letras_disponiveis.upper()}")
+        print(f"✓ Letra obrigatória: {letra_central.upper()}")
         
+        # Encontrar palavras válidas
         todas_palavras = encontrar_palavras_validas(letras_disponiveis, letra_central, dicionario)
         
         if not todas_palavras:
-            print("\nNenhuma palavra foi encontrada no dicionário.")
+            print("\n❌ Nenhuma palavra foi encontrada.")
             return
         
+        # MACHINE LEARNING: Priorizar palavras
+        palavras_priorizadas = priorizar_palavras_ml(todas_palavras)
+        
         print(f"\n{'='*60}")
-        print(f"🚀 MODO TURBO COM RETRY INTELIGENTE ATIVADO!")
-        print(f"📝 Total de palavras no dicionário: {len(todas_palavras)}")
+        print(f"🚀 MODO TURBO COM ML E RETRY INTELIGENTE!")
+        print(f"📝 Total de palavras: {len(palavras_priorizadas)}")
         print(f"{'='*60}")
         
         # Ativar o jogo
         ativar_jogo_clicando_letra_central(navegador)
         
-        # Sistema de tentativas com retry inteligente
+        # Sistema de tentativas
         max_tentativas = 5
         tentativa = 1
-        palavras_para_enviar = todas_palavras.copy()
+        palavras_para_enviar = palavras_priorizadas.copy()
+        todas_aceitas = []
+        todas_rejeitadas = []
         
         tempo_total_inicio = time.time()
         
@@ -288,12 +397,15 @@ def jogar_soletra():
             print(f"🔄 TENTATIVA {tentativa}/{max_tentativas}")
             print(f"{'#'*60}")
             
-            # Enviar palavras
-            sucesso, tempo = enviar_lote_palavras(
+            # Enviar palavras com tracking
+            aceitas, rejeitadas, tempo = enviar_lote_palavras_com_tracking(
                 navegador, 
                 palavras_para_enviar,
                 f"Tentativa {tentativa} - {len(palavras_para_enviar)} palavras"
             )
+            
+            todas_aceitas.extend(aceitas)
+            todas_rejeitadas.extend(rejeitadas)
             
             time.sleep(1)
             
@@ -305,6 +417,8 @@ def jogar_soletra():
             print(f"📊 RESULTADO DA TENTATIVA {tentativa}:")
             print(f"{'='*60}")
             print(f"   ✓ Progresso: {acertos}/{total}")
+            print(f"   ✅ Aceitas nesta tentativa: {len(aceitas)}")
+            print(f"   ❌ Rejeitadas nesta tentativa: {len(rejeitadas)}")
             print(f"   📈 Taxa de acerto: {(acertos/total*100):.1f}%")
             print(f"   ⏱️  Tempo da tentativa: {tempo:.2f}s")
             
@@ -325,24 +439,23 @@ def jogar_soletra():
                 print(f"{'🎉'*20}")
                 break
             
-            # Se não completou, preparar próxima tentativa
+            # Preparar próxima tentativa
             if tentativa < max_tentativas:
                 print(f"\n🔄 Preparando tentativa {tentativa + 1}...")
-                print(f"   📋 Filtrando apenas palavras faltantes...")
                 
-                # Converter palavras acertadas para set normalizado
                 palavras_acertadas_norm = {normalizar_palavra(p) for p in palavras_acertadas}
                 
-                # Filtrar palavras que ainda faltam
                 palavras_para_enviar = [
                     p for p in todas_palavras 
                     if normalizar_palavra(p) not in palavras_acertadas_norm and
                     len(p) in faltantes_por_tamanho
                 ]
                 
+                # Re-priorizar com ML
+                palavras_para_enviar = priorizar_palavras_ml(palavras_para_enviar)
+                
                 print(f"   ✓ {len(palavras_para_enviar)} palavras filtradas para retry")
                 
-                # Re-ativar o jogo
                 time.sleep(1)
                 ativar_jogo_clicando_letra_central(navegador)
                 
@@ -355,16 +468,22 @@ def jogar_soletra():
                 print(f"⏱️  Tempo total: {tempo_total_final:.2f} segundos")
                 print(f"{'⚠️'*20}")
                 break
+        
+        # Atualizar histórico com Machine Learning
+        print("\n💾 Atualizando histórico com Machine Learning...")
+        atualizar_historico(todas_aceitas, todas_rejeitadas)
+        print("✓ Histórico atualizado! O robô ficará mais inteligente na próxima execução.")
 
     except Exception as e:
         print(f"\n❌ Erro inesperado: {e}")
         import traceback
         traceback.print_exc()
     finally:
-        print("\n⏳ O robô vai fechar em 30 segundos para você ver o resultado.")
+        print("\n⏳ Fechando navegador em 30 segundos...")
         time.sleep(30)
         navegador.quit()
 
 
 if __name__ == "__main__":
-    jogar_soletra()
+    # headless=False para ver o navegador | headless=True para rodar sem interface
+    jogar_soletra_ml(headless=False)
