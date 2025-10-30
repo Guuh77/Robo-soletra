@@ -5,7 +5,7 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
-from selenium.common.exceptions import TimeoutException, StaleElementReferenceException
+from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
@@ -79,23 +79,20 @@ def configurar_navegador_otimizado():
 
 
 def ativar_jogo_clicando_letra_central(driver):
-    """SOLUÇÃO DEFINITIVA: Clica na letra central e apaga para ativar o sistema"""
+    """Clica na letra central e apaga para ativar o sistema"""
     try:
         print("\n🔧 Ativando sistema clicando na letra central...")
         
-        # Encontrar e clicar na letra central
         letra_central_elemento = driver.find_element(By.CSS_SELECTOR, ".hexagon-cell.center")
         letra_central_elemento.click()
         print("✓ Letra central clicada!")
         time.sleep(0.3)
         
-        # Apagar a letra usando backspace via JavaScript e Selenium
         input_elem = driver.find_element(By.ID, "input")
         input_elem.send_keys(Keys.BACKSPACE)
         print("✓ Letra apagada com Backspace!")
         time.sleep(0.3)
         
-        # Garantir que está vazio
         driver.execute_script("document.getElementById('input').value = '';")
         print("✓ Campo limpo e sistema ativado!")
         
@@ -104,6 +101,49 @@ def ativar_jogo_clicando_letra_central(driver):
     except Exception as e:
         print(f"⚠️ Erro ao ativar jogo: {e}")
         return False
+
+
+def obter_progresso_jogo(driver):
+    """Obtém o progresso atual do jogo (acertos/total)"""
+    try:
+        pontos_elem = driver.find_element(By.CSS_SELECTOR, "span.points")
+        texto = pontos_elem.text
+        acertos, total = map(int, texto.split('/'))
+        return acertos, total
+    except Exception as e:
+        print(f"⚠️ Erro ao obter progresso: {e}")
+        return 0, 0
+
+
+def obter_palavras_faltantes_por_tamanho(driver):
+    """Identifica quantas palavras faltam por número de letras"""
+    try:
+        word_boxes = driver.find_elements(By.CSS_SELECTOR, ".word-box")
+        faltantes_por_tamanho = {}
+        palavras_encontradas = []
+        
+        for box in word_boxes:
+            # Verifica se tem a classe "found"
+            if "found" in box.get_attribute("class"):
+                # Palavra já encontrada
+                try:
+                    palavra = box.find_element(By.CSS_SELECTOR, "span.word").text
+                    palavras_encontradas.append(palavra)
+                except:
+                    pass
+            else:
+                # Palavra faltante
+                try:
+                    length_text = box.find_element(By.CSS_SELECTOR, "span.length").text
+                    num_letras = int(length_text.split()[0])
+                    faltantes_por_tamanho[num_letras] = faltantes_por_tamanho.get(num_letras, 0) + 1
+                except:
+                    pass
+        
+        return faltantes_por_tamanho, palavras_encontradas
+    except Exception as e:
+        print(f"⚠️ Erro ao obter palavras faltantes: {e}")
+        return {}, []
 
 
 def enviar_palavra_ultra_rapido(driver, palavra):
@@ -115,21 +155,14 @@ def enviar_palavra_ultra_rapido(driver, palavra):
             return false;
         }}
         
-        // Dar foco no input
         input.focus();
-        
-        // Limpa o campo
         input.value = '';
-        
-        // Define a palavra
         input.value = '{palavra}';
         
-        // Dispara eventos
         input.dispatchEvent(new Event('input', {{ bubbles: true }}));
         input.dispatchEvent(new Event('change', {{ bubbles: true }}));
         input.dispatchEvent(new KeyboardEvent('keyup', {{ bubbles: true }}));
         
-        // Clica no botão
         setTimeout(function() {{
             var buttons = document.querySelectorAll('button');
             for (var btn of buttons) {{
@@ -150,6 +183,30 @@ def enviar_palavra_ultra_rapido(driver, palavra):
         
     except Exception as e:
         return False
+
+
+def enviar_lote_palavras(driver, palavras, descricao=""):
+    """Envia um lote de palavras e retorna estatísticas"""
+    print(f"\n{'='*60}")
+    print(f"📝 {descricao}")
+    print(f"🎯 Enviando {len(palavras)} palavras...")
+    print(f"{'='*60}\n")
+    
+    sucesso = 0
+    tempo_inicio = time.time()
+    
+    for i, palavra in enumerate(palavras):
+        if enviar_palavra_ultra_rapido(driver, palavra):
+            sucesso += 1
+        
+        if (i + 1) % 50 == 0:
+            tempo_decorrido = time.time() - tempo_inicio
+            velocidade = sucesso / tempo_decorrido if tempo_decorrido > 0 else 0
+            porcentagem = ((i + 1) / len(palavras)) * 100
+            print(f"📊 [{porcentagem:5.1f}%] {i+1:4d}/{len(palavras)} | ⚡ {velocidade:.1f} p/s")
+    
+    tempo_total = time.time() - tempo_inicio
+    return sucesso, tempo_total
 
 
 def jogar_soletra():
@@ -187,7 +244,6 @@ def jogar_soletra():
         except TimeoutException:
             print("Nenhuma tela de tutorial encontrada.")
         
-        # Aguardar o jogo carregar
         print("\n⏳ Aguardando Svelte renderizar o jogo...")
         wait.until(EC.presence_of_element_located((By.ID, "input")))
         time.sleep(2)
@@ -206,59 +262,99 @@ def jogar_soletra():
         print(f"Letras disponíveis: {letras_disponiveis.upper()}")
         print(f"Letra obrigatória: {letra_central.upper()}")
         
-        palavras_para_jogar = encontrar_palavras_validas(letras_disponiveis, letra_central, dicionario)
+        todas_palavras = encontrar_palavras_validas(letras_disponiveis, letra_central, dicionario)
         
-        # Jogar com sistema turbo
-        if not palavras_para_jogar:
-            print("\nNenhuma palavra foi encontrada no dicionário para as letras de hoje.")
-        else:
-            print(f"\n{'='*60}")
-            print(f"🚀 MODO TURBO ATIVADO!")
-            print(f"📝 Total de palavras: {len(palavras_para_jogar)}")
-            print(f"{'='*60}")
+        if not todas_palavras:
+            print("\nNenhuma palavra foi encontrada no dicionário.")
+            return
+        
+        print(f"\n{'='*60}")
+        print(f"🚀 MODO TURBO COM RETRY INTELIGENTE ATIVADO!")
+        print(f"📝 Total de palavras no dicionário: {len(todas_palavras)}")
+        print(f"{'='*60}")
+        
+        # Ativar o jogo
+        ativar_jogo_clicando_letra_central(navegador)
+        
+        # Sistema de tentativas com retry inteligente
+        max_tentativas = 5
+        tentativa = 1
+        palavras_para_enviar = todas_palavras.copy()
+        
+        tempo_total_inicio = time.time()
+        
+        while tentativa <= max_tentativas:
+            print(f"\n{'#'*60}")
+            print(f"🔄 TENTATIVA {tentativa}/{max_tentativas}")
+            print(f"{'#'*60}")
             
-            # SOLUÇÃO DEFINITIVA: Clicar na letra central e apagar
-            ativar_jogo_clicando_letra_central(navegador)
+            # Enviar palavras
+            sucesso, tempo = enviar_lote_palavras(
+                navegador, 
+                palavras_para_enviar,
+                f"Tentativa {tentativa} - {len(palavras_para_enviar)} palavras"
+            )
             
-            print(f"\n🎮 Iniciando envio automático ultra-rápido...\n")
+            time.sleep(1)
             
-            sucesso = 0
-            falhas = 0
-            tempo_inicio = time.time()
-            
-            # Loop de envio ultra-rápido
-            for i, palavra in enumerate(palavras_para_jogar):
-                if enviar_palavra_ultra_rapido(navegador, palavra):
-                    sucesso += 1
-                else:
-                    falhas += 1
-                
-                # Mostrar progresso a cada 100 palavras
-                if (i + 1) % 100 == 0:
-                    tempo_decorrido = time.time() - tempo_inicio
-                    velocidade = sucesso / tempo_decorrido if tempo_decorrido > 0 else 0
-                    porcentagem = ((i + 1) / len(palavras_para_jogar)) * 100
-                    print(f"📊 [{porcentagem:5.1f}%] {i+1:4d}/{len(palavras_para_jogar)} | ✓ {sucesso:4d} | ✗ {falhas:2d} | ⚡ {velocidade:.1f} p/s")
-                
-                # Proteção contra falhas em massa
-                if falhas > 50 and (falhas / (i + 1)) > 0.5:
-                    print(f"\n⚠️ Taxa de falha muito alta. Re-ativando sistema...")
-                    ativar_jogo_clicando_letra_central(navegador)
-                    time.sleep(1)
-                    falhas = 0
-            
-            tempo_total = time.time() - tempo_inicio
+            # Verificar progresso
+            acertos, total = obter_progresso_jogo(navegador)
+            faltantes_por_tamanho, palavras_acertadas = obter_palavras_faltantes_por_tamanho(navegador)
             
             print(f"\n{'='*60}")
-            print(f"🎯 RESULTADO FINAL:")
+            print(f"📊 RESULTADO DA TENTATIVA {tentativa}:")
             print(f"{'='*60}")
-            print(f"   ✓ Palavras enviadas: {sucesso}/{len(palavras_para_jogar)}")
-            print(f"   ✗ Falhas: {falhas}")
-            print(f"   📊 Taxa de sucesso: {(sucesso/len(palavras_para_jogar)*100):.1f}%")
-            print(f"   ⏱️  Tempo total: {tempo_total:.2f} segundos")
-            if tempo_total > 0:
-                print(f"   🚀 Velocidade média: {sucesso/tempo_total:.1f} palavras/segundo")
+            print(f"   ✓ Progresso: {acertos}/{total}")
+            print(f"   📈 Taxa de acerto: {(acertos/total*100):.1f}%")
+            print(f"   ⏱️  Tempo da tentativa: {tempo:.2f}s")
+            
+            if faltantes_por_tamanho:
+                print(f"\n   🔍 Palavras faltantes por tamanho:")
+                for tamanho, quantidade in sorted(faltantes_por_tamanho.items()):
+                    print(f"      • {tamanho} letras: {quantidade} palavra(s)")
+            
             print(f"{'='*60}")
+            
+            # Verificar se completou
+            if acertos == total:
+                tempo_total_final = time.time() - tempo_total_inicio
+                print(f"\n{'🎉'*20}")
+                print(f"🏆 PERFEITO! TODAS AS {total} PALAVRAS ENCONTRADAS!")
+                print(f"🎯 Completado na tentativa {tentativa}")
+                print(f"⏱️  Tempo total: {tempo_total_final:.2f} segundos")
+                print(f"{'🎉'*20}")
+                break
+            
+            # Se não completou, preparar próxima tentativa
+            if tentativa < max_tentativas:
+                print(f"\n🔄 Preparando tentativa {tentativa + 1}...")
+                print(f"   📋 Filtrando apenas palavras faltantes...")
+                
+                # Converter palavras acertadas para set normalizado
+                palavras_acertadas_norm = {normalizar_palavra(p) for p in palavras_acertadas}
+                
+                # Filtrar palavras que ainda faltam
+                palavras_para_enviar = [
+                    p for p in todas_palavras 
+                    if normalizar_palavra(p) not in palavras_acertadas_norm and
+                    len(p) in faltantes_por_tamanho
+                ]
+                
+                print(f"   ✓ {len(palavras_para_enviar)} palavras filtradas para retry")
+                
+                # Re-ativar o jogo
+                time.sleep(1)
+                ativar_jogo_clicando_letra_central(navegador)
+                
+                tentativa += 1
+            else:
+                tempo_total_final = time.time() - tempo_total_inicio
+                print(f"\n{'⚠️'*20}")
+                print(f"❌ Limite de {max_tentativas} tentativas atingido")
+                print(f"📊 Resultado final: {acertos}/{total} ({(acertos/total*100):.1f}%)")
+                print(f"⏱️  Tempo total: {tempo_total_final:.2f} segundos")
+                print(f"{'⚠️'*20}")
+                break
 
     except Exception as e:
         print(f"\n❌ Erro inesperado: {e}")
